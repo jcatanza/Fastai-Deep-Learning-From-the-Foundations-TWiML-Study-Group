@@ -7,8 +7,8 @@
 from exp.nb_03 import *
 
 class DataBunch():
-    def __init__(self, train_dl, valid_dl, batch_size=None):
-        self.train_dl,self.valid_dl,self.batch_size = train_dl,valid_dl,batch_size
+    def __init__(self, train_dl, valid_dl, n_out=None):
+        self.train_dl,self.valid_dl,self.n_out = train_dl,valid_dl,n_out
 
     # add train_ds() as an attribute
     @property
@@ -21,9 +21,10 @@ class DataBunch():
 
 
 # get_model() instantiates the model and the optimizer
-def get_model(data, learning_rate = 0.5, n_hidden = 50):
+def get_model(data, learning_rate=0.5, n_hidden = 50):
     n_columns = data.train_ds.x.shape[1]
-    model = nn.Sequential(nn.Linear(n_columns,n_hidden), nn.ReLU(), nn.Linear(n_hidden,data.batch_size))
+    n_out = data.n_out
+    model = nn.Sequential(nn.Linear(n_columns,n_hidden), nn.ReLU(), nn.Linear(n_hidden,n_out))
     return model, optim.SGD(model.parameters(), lr=learning_rate)
 
 # the Learner() class is a container for the model, optimization, loss function and data
@@ -42,7 +43,8 @@ def camel2snake(name):
 
 # create a Callback() class
 class Callback():
-    # initialize _order to zero
+    # initialize _order to zero.
+    #     ????? not sure why we need _order
     _order=0
     def set_runner(self, run):
         self.run=run
@@ -56,9 +58,12 @@ class Callback():
 
 class TrainEvalCallback(Callback):
 
-    # initialize the epoch and interation counters
+    # initialize the epoch and iteration counters
     def begin_fit(self):
-        self.run.n_epochs=0.
+        # n_epochs_float keeps track of where we are in the current epoch, need not be integer
+        #     in original code, this variable was named n_epochs, but there is another variable with than name
+        #     so it is preferable to give it a more apporpriate and descriptive name.
+        self.run.n_epochs_float=0.
         self.run.n_iter=0
 
     # if we are in the training phase, increment the epoch and iteration counters
@@ -66,12 +71,13 @@ class TrainEvalCallback(Callback):
         if not self.in_train:
             return
         # each training iteration represents a fraction of an epoch
-        self.run.frac_epoch += 1./self.n_iters
+        #      n_iters comes from TestCallback, and is an attribute of begin_fit
+        self.run.n_epochs_float += 1./self.n_iters
         self.run.n_iter   += 1
 
     # execute the training phase
     def begin_epoch(self):
-        self.run.n_epochs=self.n_epochs
+        self.run.n_epochs_float=self.n_epochs_float
         self.model.train()
         self.run.in_train=True
 
@@ -138,7 +144,7 @@ class Runner():
 
     def all_batches(self, dataloader):
         self.n_iters = len(dataloader)
-        self.frac_epoch = 0.
+        self.n_epochs_float = 0.
         for xb,yb in dataloader:
             # break if stopping flag has been set
             if self.stop:

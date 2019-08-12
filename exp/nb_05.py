@@ -25,17 +25,15 @@ class Recorder(Callback):
     def plot_loss(self): plt.plot(self.losses)
 
 class ParamScheduler(Callback):
+    # ?????what is the function of the _order parameter?????
     _order=1
     def __init__(self, pname, sched_func): self.pname,self.sched_func = pname,sched_func
 
     def set_param(self):
         for pg in self.opt.param_groups:
-            # ?????
-            # n_epochs is always 0.0
             # pg[self.pname] = self.sched_func(self.n_epochs,self.epoch)
-            # print(self.epoch, self.n_epochs)
-            # pg[self.pname] = self.sched_func(self.frac_epoch/(self.epoch+1))
-            pg[self.pname] = self.sched_func(self.frac_epoch)
+            print(self.epoch, self.n_epochs_float)
+            pg[self.pname] = self.sched_func(self.n_epochs_float)
 
     def begin_batch(self):
         if self.in_train: self.set_param()

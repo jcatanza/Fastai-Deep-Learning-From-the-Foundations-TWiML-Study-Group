@@ -23,6 +23,6 @@ class Dataset():
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 
 # note double batch size for validation data set, since it needs less storage because it has no gradients
-def get_dls(train_ds, valid_ds, bs, **kwargs):
-    return (DataLoader(train_ds, batch_size=bs, shuffle=True, **kwargs),
-            DataLoader(valid_ds, batch_size=bs*2, **kwargs))
+def get_dls(train_ds, valid_ds, batch_size, **kwargs):
+    return (DataLoader(train_ds, batch_size=batch_size, shuffle=True, **kwargs),
+            DataLoader(valid_ds, batch_size=batch_size*2, **kwargs))
