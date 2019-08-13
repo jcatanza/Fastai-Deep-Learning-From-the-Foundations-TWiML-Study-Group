@@ -82,9 +82,9 @@ class ParamScheduler(Callback):
 
     def set_param(self):
         for param_group in self.opt.param_groups:
-            print(self.epoch, self.n_epochs_float)
+            # print(self.epoch, self.n_epochs_float)
             # param_group[self.pname] = self.sched_func((self.epoch+self.n_epochs_float)/(self.epoch+1))
-            param_group[self.pname] = self.sched_func((self.n_epochs_float+sel.epoch)/self.n_epochs)
+            param_group[self.pname] = self.sched_func((self.n_epochs_float+self.epoch)/self.n_epochs)
 
     def begin_batch(self):
         if self.in_train:
