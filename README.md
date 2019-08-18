@@ -10,8 +10,6 @@ An up-to-date schedule is maintained at https://docs.google.com/spreadsheets/d/1
 
 Join the TWiML Fastai study group here: https://twimlai.com/twiml-x-fast-ai/
 
-Hope to see you at the next meetup!
-
 The key to an optimal Fastai course experience is: don't be a spectator!  Unless you are learning from the course notebooks by spending time with them, running them and playing with them, you are a bystander, and you will miss out on getting the full benefit of the course.
 
 Thus, the primary barrier to participation in the Fastai courses is setting up the infrastructure to run the course notebooks. There are many possibilities: if you have the necessary resources, you can run the notebooks locally on your own machine. Otherwise you can run the notebooks on Kaggle, on Google Colab, or on other cloud platforms such as paperspace, AWS, and crestle.
@@ -20,4 +18,6 @@ Currently the best cloud alternative for most people is Google Colab, which prov
 
 https://colab.research.google.com/github/jcatanza/Fastai-Deep-Learning-From-the-Foundations-TWiML-Study-Group/blob/master/initialize_fastai_dl2_colab_jcat.ipynb
 
-If you plan to participate in the course, please do this as a first priority!  
+If you plan to participate in the course, please do this as a first priority!
+
+Hope to see you at the next meetup!
