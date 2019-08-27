@@ -89,7 +89,7 @@ class Recorder(Callback):
         plt.plot(self.losses)
 
 class ParamScheduler(Callback):
-    # ????? what is the function of the _order parameter ?????
+    # order parameter
     _order=1
     def __init__(self, pname, sched_func):
         self.pname,self.sched_func = pname,sched_func
