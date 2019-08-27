@@ -140,8 +140,15 @@ class Recorder(Callback):
         for pg,lr in zip(self.opt.param_groups,self.lrs): lr.append(pg['lr'])
         self.losses.append(self.loss.detach().cpu())
 
-    def plot_lr  (self, pgid=-1): plt.plot(self.lrs[pgid])
-    def plot_loss(self, skip_last=0): plt.plot(self.losses[:len(self.losses)-skip_last])
+    def plot_lr  (self, pgid=-1):
+        plt.plot(self.lrs[pgid])
+        plt.xlabel('iteration')
+        plt.ylabel('loss')
+    def plot_loss(self, skip_last=0): # !!!!! not used
+        plt.plot(self.losses[:len(self.losses)-skip_last])
+        plt.xlabel('iteration')
+        plt.ylabel('loss')
+
 
     def plot(self, skip_last=0, pgid=-1):
         losses = [o.item() for o in self.losses]
@@ -149,6 +156,8 @@ class Recorder(Callback):
         n = len(losses)-skip_last
         plt.xscale('log')
         plt.plot(lrs[:n], losses[:n])
+        plt.xlabel('learning rate')
+        plt.ylabel('loss')
 
 class ParamScheduler(Callback):
     _order=1

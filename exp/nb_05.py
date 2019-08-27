@@ -21,6 +21,11 @@ def annealer(f):
 def sched_lin(start, end, pos):
     return start + pos*(end-start)
 
+
+# note that it's 'cheating' to import the beta function and numpy
+from scipy.stats import beta
+import numpy as np
+
 @annealer
 # cosine schedule
 def sched_cos(start, end, pos):
@@ -33,6 +38,15 @@ def sched_no(start, end, pos):
 @annealer
 def sched_exp(start, end, pos):
     return start * (end/start) ** pos
+# betafunction schedule
+@annealer
+def sched_beta(start, end, pos):
+    a, b = 2.5, 5.
+    x = np.linspace(0.,1.0,100)
+    beta_func = beta.pdf(x, a, b)
+    scaled_pos = pos/(end-start)
+    scale = 0.8
+    return scale*np.interp(pos, x, beta_func)
 
 #Add an ndim property to the Tensor class so that tensors can be plotted
 torch.Tensor.ndim = property(lambda x: len(x.shape))
