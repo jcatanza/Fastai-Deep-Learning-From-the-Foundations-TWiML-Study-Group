@@ -20,11 +20,12 @@ class DataBunch():
     def valid_ds(self): return self.valid_dl.dataset
 
 
-# get_model() instantiates the model and the optimizer
+# instantiates the model and the optimizer, given the data and parameters
 def get_model(data, learning_rate=0.5, n_hidden = 50):
     n_columns = data.train_ds.x.shape[1]
     n_out = data.n_out
     model = nn.Sequential(nn.Linear(n_columns,n_hidden), nn.ReLU(), nn.Linear(n_hidden,n_out))
+    # why can we access the optimizer from within this function?
     return model, optim.SGD(model.parameters(), lr=learning_rate)
 
 # the Learner() class is a container for the model, optimization, loss function and data
@@ -41,20 +42,32 @@ def camel2snake(name):
     s1 = re.sub(_camel_re1, r'\1_\2', name)
     return re.sub(_camel_re2, r'\1_\2', s1).lower()
 
-# create a Callback() class
+# refactored Callback() class
 class Callback():
+
     # initialize _order to zero.
-    #     ????? not sure why we need _order
     _order=0
+
+    # set_runner() method serves to replace all the basic callback methods
+    #     note that initially self.run is unset -- there is no default value
     def set_runner(self, run):
         self.run=run
-    def __getattr__(self, callback_name):
-        return getattr(self.run, callback_name)
+
+    def __getattr__(self, cb):
+        return getattr(self.run, cb)
     @property
     def name(self):
         name = re.sub(r'Callback$', '', self.__class__.__name__)
         # if name does not exist, set the name to 'callback'
         return camel2snake(name or 'callback')
+        # the above line is equivalent to the following block
+        '''
+        try:
+            return camel2snake(name)
+        except:
+            return 'callback'
+        '''
+
 
 class TrainEvalCallback(Callback):
 
@@ -71,7 +84,7 @@ class TrainEvalCallback(Callback):
         if not self.in_train:
             return
         # each training iteration represents a fraction of an epoch
-        #      n_iters comes from TestCallback, and is an attribute of begin_fit
+        #      n_iters comes from TestCallback(), and is an attribute of begin_fit()
         self.run.n_epochs_float += 1./self.n_iters
         self.run.n_iter   += 1
 
@@ -108,6 +121,7 @@ class Runner():
         # set the stopping flag to `False` and append TrainEvalCallback() to the callbacks list
         self.stop,self.callbacks = False,[TrainEvalCallback()]+callbacks
 
+
     @property
     def opt(self):       return self.learn.opt
     @property
@@ -123,12 +137,10 @@ class Runner():
             return
         # run the model
         self.pred = self.model(self.xb)
-        # ????? no `after_pred` callback has been defined ?????
         if self('after_pred'):
             return
         # compute the loss function
         self.loss = self.loss_func(self.pred, self.yb)
-        # should `self('after_loss')` be `not self('after_loss')`, for consistency with previous version?
         if self('after_loss') or not self.in_train:
             return
         # do backpropagation
@@ -184,11 +196,11 @@ class Runner():
             # erase the learner object
             self.learn = None
 
-    def __call__(self, callback_name):
+    def __call__(self, cb_name):
+        # loop through the callback list, return True if the requested callback is present, otherwise return False
         for callback in sorted(self.callbacks, key=lambda x: x._order):
-            # getattr returns the callback name
-            f = getattr(callback, callback_name, None)
-            # return `True` if this callback has a name, otherwise return `False`
+            # check this callback name, and return True if it is the requested callback
+            f = getattr(callback, cb_name, None)
             if f and f():
                 return True
         return False
@@ -237,6 +249,7 @@ class AvgStatsCallback(Callback):
     def begin_epoch(self):
         self.train_stats.reset()
         self.valid_stats.reset()
+
     # compute and accumulate stats
     def after_loss(self):
         stats = self.train_stats if self.in_train else self.valid_stats
