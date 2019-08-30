@@ -35,7 +35,7 @@ class Learner():
 
 import re
 
-# use regular expressions to construct a 'snake case' callback name for each 'camel case' callback name
+# helper function uses regular expressions to transform a CamelCase callback name to snake_case
 _camel_re1 = re.compile('(.)([A-Z][a-z]+)')
 _camel_re2 = re.compile('([a-z0-9])([A-Z])')
 def camel2snake(name):
@@ -48,13 +48,13 @@ class Callback():
     # initialize _order to zero.
     _order=0
 
-    # set_runner() method serves to replace all the basic callback methods
+    # set_runner() method takes a callback as an input (?)
     #     note that initially self.run is unset -- there is no default value
     def set_runner(self, run):
         self.run=run
 
-    def __getattr__(self, cb):
-        return getattr(self.run, cb)
+    def __getattr__(self, cb_name):
+        return getattr(self.run, cb_name)
     @property
     def name(self):
         name = re.sub(r'Callback$', '', self.__class__.__name__)
@@ -73,11 +73,9 @@ class TrainEvalCallback(Callback):
 
     # initialize the epoch and iteration counters
     def begin_fit(self):
-        # n_epochs_float keeps track of where we are in the current epoch, need not be integer
-        #     in original code, this variable was named n_epochs, but there is another variable with than name
-        #     so it is preferable to give it a more apporpriate and descriptive name.
-        self.run.n_epochs_float=0.
-        self.run.n_iter=0
+        # n_epochs_float keeps track of fractional number of elapsed epochs at each iteration
+        self.run.n_epochs_float = 0.
+        self.run.n_iter = 0
 
     # if we are in the training phase, increment the epoch and iteration counters
     def after_batch(self):
@@ -101,7 +99,7 @@ class TrainEvalCallback(Callback):
 
 from typing import *
 
-# function to convert any input into a list
+# helper function to convert any input into a list
 def listify(o):
     if o is None: return []
     if isinstance(o, list): return o
@@ -109,11 +107,15 @@ def listify(o):
     if isinstance(o, Iterable): return list(o)
     return [o]
 
+
 class Runner():
+    # intitialize by setting the stop Flag to False, and constructing a list of callbacks from the inputs
     def __init__(self, callbacks=None, callback_funcs=None):
+        # inputs are two lists of callbacks
+        # Q: it's not clear why we need two lists rather than one
         # create a list of callbacks from the input callbacks
         callbacks = listify(callbacks)
-        # append to the callbacks list from the input list of callback_funcs
+        # associate each callback to its snake case callback name and append to the callbacks list
         for callback_func in listify(callback_funcs):
             callback = callback_func()
             setattr(self, callback.name, callback)
@@ -121,7 +123,7 @@ class Runner():
         # set the stopping flag to `False` and append TrainEvalCallback() to the callbacks list
         self.stop,self.callbacks = False,[TrainEvalCallback()]+callbacks
 
-
+    # get the properties of the Learner object
     @property
     def opt(self):       return self.learn.opt
     @property
@@ -131,6 +133,7 @@ class Runner():
     @property
     def data(self):      return self.learn.data
 
+    # methods to process a single batch and all batches
     def one_batch(self, xb, yb):
         self.xb,self.yb = xb,yb
         if self('begin_batch'):
@@ -167,10 +170,13 @@ class Runner():
         # set the stopping flag to `False`
         self.stop=False
 
+    # method to process training or validation data
     def fit(self, learn, n_epochs):
         self.n_epochs,self.learn = n_epochs,learn
 
         try:
+            # loop over all callbacks in list and set_runner for each one
+            # Q: doesn't this overwrite self.run
             for callback in self.callbacks:
                 callback.set_runner(self)
             if self('begin_fit'):
@@ -197,11 +203,14 @@ class Runner():
             self.learn = None
 
     def __call__(self, cb_name):
-        # loop through the callback list, return True if the requested callback is present, otherwise return False
+        # __call__ allows an instance of this class to be called as a function
+        # loop through the callback list, return True if the requested callback cb_name is present,
+        #     otherwise return False
         for callback in sorted(self.callbacks, key=lambda x: x._order):
             # check this callback name, and return True if it is the requested callback
+            # get the callback associated with cb_name, otherwise return None
             f = getattr(callback, cb_name, None)
-            if f and f():
+            if f and f(): # guarantees that the callback is present and is a function
                 return True
         return False
 
@@ -209,19 +218,23 @@ class AvgStats():
     def __init__(self, metrics, in_train):
         self.metrics,self.in_train = listify(metrics),in_train
 
-    # initialize total_loss, count, and total_metrics
+    # initialize total_loss and count to zero, and total_metrics to zeros for each metric
     def reset(self):
+        # count keeps track of total samples processed
         self.total_loss,self.count = 0.,0
         self.total_metrics = [0.] * len(self.metrics)
 
     # combine loss and metrics
     @property
     def all_stats(self):
+        # all_stats is a list containing loss and all metrics
+        # Q: why does total_loss have to be extracted with .item()
         return [self.total_loss.item()] + self.total_metrics
 
-    # compute avg loss and metrics
+    # compute avg loss and metrics per sample
     @property
     def avg_stats(self):
+        # each stat is averaged over the number of samples
         return [o/self.count for o in self.all_stats]
 
     # compute and display stats
@@ -237,7 +250,7 @@ class AvgStats():
         self.total_loss += run.loss * n_samples_in_batch
         # accumulate count of samples processed
         self.count += n_samples_in_batch
-        # accumulate the metrics
+        # accumulate the metrics, weighting each by number of samples in the batch
         for i,metric in enumerate(self.metrics):
             self.total_metrics[i] += metric(run.pred, run.yb) * n_samples_in_batch
 
