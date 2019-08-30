@@ -25,7 +25,7 @@ def get_model(data, learning_rate=0.5, n_hidden = 50):
     n_columns = data.train_ds.x.shape[1]
     n_out = data.n_out
     model = nn.Sequential(nn.Linear(n_columns,n_hidden), nn.ReLU(), nn.Linear(n_hidden,n_out))
-    # why can we access the optimizer from within this function?
+    # Q: why can we access the optimizer from within this function?
     return model, optim.SGD(model.parameters(), lr=learning_rate)
 
 # the Learner() class is a container for the model, optimization, loss function and data
@@ -48,17 +48,19 @@ class Callback():
     # initialize _order to zero.
     _order=0
 
-    # set_runner() method takes a callback as an input (?)
+    # set_runner() method takes a callback as an input
     #     note that initially self.run is unset -- there is no default value
     def set_runner(self, run):
         self.run=run
 
     def __getattr__(self, cb_name):
         return getattr(self.run, cb_name)
+
+    # set the callback name property
+    #     if the callback doesn't have a name, set the callback name property to 'callback'
     @property
     def name(self):
         name = re.sub(r'Callback$', '', self.__class__.__name__)
-        # if name does not exist, set the name to 'callback'
         return camel2snake(name or 'callback')
         # the above line is equivalent to the following block
         '''
@@ -71,24 +73,24 @@ class Callback():
 
 class TrainEvalCallback(Callback):
 
-    # initialize the epoch and iteration counters
+    # initialize the epoch, batch, and iteration counters
     def begin_fit(self):
-        # n_epochs_float keeps track of fractional number of elapsed epochs at each iteration
-        self.run.n_epochs_float = 0.
+        # n_epoch_float keeps track of fractional number of elapsed epochs
+        self.run.n_epoch_float = 0.
         self.run.n_iter = 0
+        self.run.n_batch = 0
 
-    # if we are in the training phase, increment the epoch and iteration counters
+    # if we are in the training phase, update the epoch and batch counters
     def after_batch(self):
         if not self.in_train:
             return
-        # each training iteration represents a fraction of an epoch
-        #      n_iters comes from TestCallback(), and is an attribute of begin_fit()
-        self.run.n_epochs_float += 1./self.n_iters
-        self.run.n_iter   += 1
+        # each batch represents a fraction of an epoch
+        self.run.n_epoch_float += 1./self.n_batches
+        self.run.n_batch   += 1
 
     # execute the training phase
     def begin_epoch(self):
-        self.run.n_epochs_float=self.n_epochs_float
+        self.run.n_epoch_float=self.n_epoch_float
         self.model.train()
         self.run.in_train=True
 
@@ -109,13 +111,13 @@ def listify(o):
 
 
 class Runner():
-    # intitialize by setting the stop Flag to False, and constructing a list of callbacks from the inputs
+    # initialize by setting the stop Flag to False, and constructing a list of callbacks from the inputs
     def __init__(self, callbacks=None, callback_funcs=None):
-        # inputs are two lists of callbacks
+        # inputs are two lists: callbacks and callback_funcs
         # Q: it's not clear why we need two lists rather than one
         # create a list of callbacks from the input callbacks
         callbacks = listify(callbacks)
-        # associate each callback to its snake case callback name and append to the callbacks list
+        # associate each callback_func() to its snake case callback name, then append it to the callbacks list
         for callback_func in listify(callback_funcs):
             callback = callback_func()
             setattr(self, callback.name, callback)
@@ -133,7 +135,7 @@ class Runner():
     @property
     def data(self):      return self.learn.data
 
-    # methods to process a single batch and all batches
+    # method to process a single batch
     def one_batch(self, xb, yb):
         self.xb,self.yb = xb,yb
         if self('begin_batch'):
@@ -157,9 +159,11 @@ class Runner():
         # zero the gradients to prepare for the next batch
         self.opt.zero_grad()
 
+    # method to process all batches
     def all_batches(self, dataloader):
-        self.n_iters = len(dataloader)
-        self.n_epochs_float = 0.
+        # total number of batches in an epoch
+        self.n_batches = len(dataloader)
+        self.n_epoch_float = 0.
         for xb,yb in dataloader:
             # break if stopping flag has been set
             if self.stop:
@@ -199,17 +203,17 @@ class Runner():
         finally:
             # set the `after_fit` state to `True`
             self('after_fit')
-            # erase the learner object
+            # erase the Learner object
             self.learn = None
 
-    def __call__(self, cb_name):
+    def __call__(self, callback_name):
         # __call__ allows an instance of this class to be called as a function
-        # loop through the callback list, return True if the requested callback cb_name is present,
+        # loop through the callback list, return True if the requested callback callback_name is present,
         #     otherwise return False
         for callback in sorted(self.callbacks, key=lambda x: x._order):
             # check this callback name, and return True if it is the requested callback
             # get the callback associated with cb_name, otherwise return None
-            f = getattr(callback, cb_name, None)
+            f = getattr(callback, callback_name, None)
             if f and f(): # guarantees that the callback is present and is a function
                 return True
         return False
@@ -258,17 +262,17 @@ class AvgStatsCallback(Callback):
     def __init__(self, metrics):
         self.train_stats,self.valid_stats = AvgStats(metrics,in_train=True),AvgStats(metrics,in_train=False)
 
-    # initialize train_stats and valid_stats
+    # initialize train_stats and valid_stats at the start of an epoch
     def begin_epoch(self):
         self.train_stats.reset()
         self.valid_stats.reset()
 
-    # compute and accumulate stats
+    # compute and accumulate stats after the loss function has been evaluated
     def after_loss(self):
         stats = self.train_stats if self.in_train else self.valid_stats
         with torch.no_grad():
             stats.accumulate(self.run)
-    # print stats
+    # print stats after the epoch has been processed
     def after_epoch(self):
         print(self.train_stats)
         print(self.valid_stats)
