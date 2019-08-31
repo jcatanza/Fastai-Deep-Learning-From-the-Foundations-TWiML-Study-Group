@@ -53,8 +53,8 @@ class Callback():
     def set_runner(self, run):
         self.run=run
 
-    def __getattr__(self, cb_name):
-        return getattr(self.run, cb_name)
+    def __getattr__(self, callback_name):
+        return getattr(self.run, callback_name)
 
     # set the callback name property
     #     if the callback doesn't have a name, set the callback name property to 'callback'
@@ -62,7 +62,7 @@ class Callback():
     def name(self):
         name = re.sub(r'Callback$', '', self.__class__.__name__)
         return camel2snake(name or 'callback')
-        # the above line is equivalent to the following block
+        # note: the above line is equivalent to the following block
         '''
         try:
             return camel2snake(name)
@@ -77,8 +77,8 @@ class TrainEvalCallback(Callback):
     def begin_fit(self):
         # n_epoch_float keeps track of fractional number of elapsed epochs
         self.run.n_epoch_float = 0.
-        self.run.n_iter = 0
         self.run.n_batch = 0
+        self.run.n_iter = 0
 
     # if we are in the training phase, update the epoch and batch counters
     def after_batch(self):
@@ -94,7 +94,7 @@ class TrainEvalCallback(Callback):
         self.model.train()
         self.run.in_train=True
 
-    # execute prediction phase
+    # execute the prediction phase
     def begin_validate(self):
         self.model.eval()
         self.run.in_train=False
@@ -163,15 +163,15 @@ class Runner():
     def all_batches(self, dataloader):
         # total number of batches in an epoch
         self.n_batches = len(dataloader)
-        self.n_epoch_float = 0.
+        # self.n_epoch_float = 0.
         for xb,yb in dataloader:
-            # break if stopping flag has been set
+            # break if run.stop flag has been set
             if self.stop:
                 break
-            # process the next batch and set the `after_batch` flag
+            # process the next batch, then run the `after_batch` callback
             self.one_batch(xb, yb)
             self('after_batch')
-        # set the stopping flag to `False`
+        # set the run.stop flag to `False`
         self.stop=False
 
     # method to process training or validation data
@@ -180,13 +180,12 @@ class Runner():
 
         try:
             # loop over all callbacks in list and set_runner for each one
-            # Q: doesn't this overwrite self.run
             for callback in self.callbacks:
                 callback.set_runner(self)
             if self('begin_fit'):
                 return
-            for epoch in range(n_epochs):
-                self.epoch = epoch
+            for epoch_number in range(n_epochs):
+                self.epoch_number = epoch_number
 
                 # training phase
                 if not self('begin_epoch'):
@@ -212,7 +211,7 @@ class Runner():
         #     otherwise return False
         for callback in sorted(self.callbacks, key=lambda x: x._order):
             # check this callback name, and return True if it is the requested callback
-            # get the callback associated with cb_name, otherwise return None
+            # get the callback associated with callback_name, otherwise return None
             f = getattr(callback, callback_name, None)
             if f and f(): # guarantees that the callback is present and is a function
                 return True

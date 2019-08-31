@@ -6,56 +6,85 @@
 
 from exp.nb_05 import *
 
+
+# Callback() class is slightly refactored from notebook 04_callbacks
 class Callback():
+
+    # initialize _order to zero.
     _order=0
+
+    # set_runner() method takes a callback as an input
+    #     note that initially self.run is unset -- there is no default value
     def set_runner(self, run):
         self.run=run
-    def __getattr__(self, k):
-        return getattr(self.run, k)
+    def __getattr__(self, callback_name):
+        return getattr(self.run, callback_name)
 
+    # set the callback name property
+    #     if the callback doesn't have a name, set the callback name property to 'callback'
     @property
     def name(self):
         name = re.sub(r'Callback$', '', self.__class__.__name__)
         return camel2snake(name or 'callback')
 
-    def __call__(self, cb_name):
-        f = getattr(self, cb_name, None)
+    # this is the only modification to the 04_callbacks notebook
+    #     it allows the Callback() class to be called as a function
+    def __call__(self, callback_name):
+        f = getattr(self, callback_name, None)
         # check this callback name, and return True if it is the requested callback
         if f and f(): return True
         return False
 
+# this helper callback is used in Runner()
 class TrainEvalCallback(Callback):
+
+    # initialize the epoch, batch, and iteration counters
     def begin_fit(self):
-        self.run.n_epochs=0.
+        self.run.n_epoch_float=0.
+        self.run.n_batch = 0
         self.run.n_iter=0
 
+    # if we are in the training phase, update the epoch and batch counters
     def after_batch(self):
-        if not self.in_train: return
-        self.run.n_epochs += 1./self.iters
-        self.run.n_iter   += 1
+        if not self.in_train:
+            return
+        # each batch represents a fraction of an epoch
+        self.run.n_epoch_float += 1./self.n_batches
+        self.run.n_batch   += 1
 
+    # execute the training phase
     def begin_epoch(self):
-        self.run.n_epochs=self.epoch
+        self.run.n_epoch_float=self.n_epoch_float
         self.model.train()
         self.run.in_train=True
 
+    # execute the prediction phase
     def begin_validate(self):
         self.model.eval()
         self.run.in_train=False
 
+# add three cancellation callbacks
 class CancelTrainException(Exception): pass
 class CancelEpochException(Exception): pass
 class CancelBatchException(Exception): pass
 
 class Runner():
-    def __init__(self, cbs=None, cb_funcs=None):
-        cbs = listify(cbs)
-        for cbf in listify(cb_funcs):
-            cb = cbf()
-            setattr(self, cb.name, cb)
-            cbs.append(cb)
-        self.stop,self.cbs = False,[TrainEvalCallback()]+cbs
 
+    # initialize by setting the stop Flag to False, and constructing a list of callbacks from the inputs
+    def __init__(self, callbacks=None, callback_funcs=None):
+        # inputs are two lists: callbacks and callback_funcs
+        # Q: it's not clear why we need two lists rather than one
+        # create a list of callbacks from the input callbacks
+        callbacks = listify(callbacks)
+        # associate each callback_func() to its snake case callback name then append it to the callbacks list
+        for callback_func in listify(callback_funcs):
+            callback = callback_func()
+            setattr(self, callback.name, callback)
+            callbacks.append(callback)
+        # set the stopping flag to `False` and append TrainEvalCallback() to the callbacks list
+        self.stop,self.callbacks = False,[TrainEvalCallback()]+callbacks
+
+    # get the properties of the Learner object
     @property
     def opt(self):       return self.learn.opt
     @property
@@ -65,6 +94,8 @@ class Runner():
     @property
     def data(self):      return self.learn.data
 
+
+    # method to process a single batch
     def one_batch(self, xb, yb):
         try:
             self.xb,self.yb = xb,yb
@@ -82,50 +113,69 @@ class Runner():
         except CancelBatchException: self('after_cancel_batch')
         finally: self('after_batch')
 
-    def all_batches(self, dl):
-        self.iters = len(dl)
+    # method to process all batches
+    def all_batches(self, dataloader):
+        # total number of batches in an epoch
+        # self.n_epoch_float = 0.
+        self.n_batches = len(dataloader)
         try:
-            for xb,yb in dl: self.one_batch(xb, yb)
+            for xb,yb in dataloader: self.one_batch(xb, yb)
         except CancelEpochException: self('after_cancel_epoch')
 
-    def fit(self, epochs, learn):
-        self.epochs,self.learn,self.loss = epochs,learn,tensor(0.)
+    # method to process training or validation data
+    def fit(self, learn, n_epochs,):
+        self.n_epochs,self.learn,self.loss = n_epochs,learn,tensor(0.)
 
         try:
-            for cb in self.cbs: cb.set_runner(self)
+            for callback in self.callbacks:
+                callback.set_runner(self)
             self('begin_fit')
-            for epoch in range(epochs):
-                self.epoch = epoch
-                if not self('begin_epoch'): self.all_batches(self.data.train_dl)
+            for epoch_number in range(n_epochs):
+                self.epoch_number = epoch_number
 
+
+                # training phase
+                if not self('begin_epoch'):
+                    self.all_batches(self.data.train_dl)
+
+                # validation phase
                 with torch.no_grad():
-                    if not self('begin_validate'): self.all_batches(self.data.valid_dl)
+                    if not self('begin_validate'):
+                        self.all_batches(self.data.valid_dl)
                 self('after_epoch')
 
-        except CancelTrainException: self('after_cancel_train')
+        except CancelTrainException:
+            self('after_cancel_train')
+
         finally:
+            # set the `after_fit` state to `True`
             self('after_fit')
+            # erase the Learner object
             self.learn = None
 
-    def __call__(self, cb_name):
-        # doesn't this always return res = False?
-        res = False
-        for cb in sorted(self.cbs, key=lambda x: x._order):
-            res = cb(cb_name) and res
-        return res
+    def __call__(self, callback_name):
+        # __call__ allows an instance of this class to be called as a function
+        # Q: note clear what this loop is trying to do; it always returns result = False
+        result = False
+        for callback in sorted(self.callbacks, key=lambda x: x._order):
+            result = callback(callback_name) and result
+        return result
 
 class AvgStatsCallback(Callback):
     def __init__(self, metrics):
-        self.train_stats,self.valid_stats = AvgStats(metrics,True),AvgStats(metrics,False)
+        self.train_stats,self.valid_stats = AvgStats(metrics,in_train = True),AvgStats(metrics,in_train = False)
 
+    # initialize train_stats and valid_stats
     def begin_epoch(self):
         self.train_stats.reset()
         self.valid_stats.reset()
 
+    # compute and accumulate stats after the loss function has been evaluated
     def after_loss(self):
         stats = self.train_stats if self.in_train else self.valid_stats
         with torch.no_grad(): stats.accumulate(self.run)
 
+    # print stats after the epoch has been processed
     def after_epoch(self):
         print(self.train_stats)
         print(self.valid_stats)
@@ -161,7 +211,8 @@ class Recorder(Callback):
 
 class ParamScheduler(Callback):
     _order=1
-    def __init__(self, pname, sched_funcs): self.pname,self.sched_funcs = pname,sched_funcs
+    def __init__(self, pname, sched_funcs):
+        self.pname,self.sched_funcs = pname,sched_funcs
 
     def begin_fit(self):
         if not isinstance(self.sched_funcs, (list,tuple)):
