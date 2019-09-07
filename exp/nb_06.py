@@ -49,19 +49,17 @@ class Hook():
 def append_stats(hook, mod, inp, outp):
     if not hasattr(hook,'stats'): hook.stats = ([],[])
     means,stds = hook.stats
-    if mod.training:
-        means.append(outp.data.mean())
-        stds .append(outp.data.std())
+    means.append(outp.data.mean())
+    stds .append(outp.data.std())
 
 class ListContainer():
     def __init__(self, items): self.items = listify(items)
     def __getitem__(self, idx):
-        try: return self.items[idx]
-        except TypeError:
-            if isinstance(idx[0],bool):
-                assert len(idx)==len(self) # bool mask
-                return [o for m,o in zip(idx,self.items) if m]
-            return [self.items[i] for i in idx]
+        if isinstance(idx, (int,slice)): return self.items[idx]
+        if isinstance(idx[0],bool):
+            assert len(idx)==len(self) # bool mask
+            return [o for m,o in zip(idx,self.items) if m]
+        return [self.items[i] for i in idx]
     def __len__(self): return len(self.items)
     def __iter__(self): return iter(self.items)
     def __setitem__(self, i, o): self.items[i] = o
