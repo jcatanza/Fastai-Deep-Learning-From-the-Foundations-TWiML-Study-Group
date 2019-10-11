@@ -46,6 +46,8 @@ def sched_cos(start, end, pos): return start + (1 + math.cos(math.pi*(1-pos))) *
 def sched_no(start, end, pos):  return start
 @annealer
 def sched_exp(start, end, pos): return start * (end/start) ** pos
+@annealer
+def cos_1cycle_anneal(start, high, end): return [sched_cos(start, high), sched_cos(high, end)]
 
 #This monkey-patch is there to be able to plot tensors
 torch.Tensor.ndim = property(lambda x: len(x.shape))
