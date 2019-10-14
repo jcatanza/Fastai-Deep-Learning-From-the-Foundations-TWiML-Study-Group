@@ -4,6 +4,11 @@
 #################################################
 # file to edit: dev_nb/08_data_block.ipynb
 
+#from exp.nb_05 import *
+#from exp.nb_05b import *
+#torch.set_num_threads(2)
+#from exp.nb_06 import *
+#from exp.nb_07 import *
 from exp.nb_07a import *
 
 import PIL,os,mimetypes

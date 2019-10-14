@@ -23,8 +23,8 @@ def is_lin_layer(l):
 def lsuv_module(m, xb):
     h = Hook(m, append_stat)
 
-    while mdl(xb) is not None and abs(h.mean)  > 1e-3: m.bias -= h.mean
     while mdl(xb) is not None and abs(h.std-1) > 1e-3: m.weight.data /= h.std
+    while mdl(xb) is not None and abs(h.mean)  > 1e-3: m.bias -= h.mean
 
     h.remove()
     return h.mean,h.std
