@@ -83,7 +83,7 @@ class Learner():
 
     ALL_CBS = {'begin_batch', 'after_pred', 'after_loss', 'after_backward', 'after_step',
         'after_cancel_batch', 'after_batch', 'after_cancel_epoch', 'begin_fit',
-        'begin_epoch', 'begin_epoch', 'begin_validate', 'after_epoch',
+        'begin_epoch', 'begin_validate', 'after_epoch',
         'after_cancel_train', 'after_fit'}
 
     def __call__(self, cb_name):

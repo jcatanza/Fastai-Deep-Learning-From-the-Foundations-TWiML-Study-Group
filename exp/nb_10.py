@@ -84,10 +84,11 @@ class RandomResizedCrop(GeneralCrop):
                 top  = random.randint(0, h - new_h)
                 return (left, top, left + new_w, top + new_h)
 
-        # Fallback to central crop
-        left,top = randint(0,w-self.crop_size[0]),randint(0,h-self.crop_size[1])
-        return (left, top, left+self.crop_size[0], top+self.crop_size[1])
-        # Fallback to central crop
+        # Fallback to squish
+        if   w/h < self.ratio[0]: size = (w, int(w/self.ratio[0]))
+        elif w/h > self.ratio[1]: size = (int(h*self.ratio[1]), h)
+        else:                     size = (w, h)
+        return ((w-size[0])//2, (h-size[1])//2, (w+size[0])//2, (h+size[1])//2)
 
 from torch import FloatTensor,LongTensor
 

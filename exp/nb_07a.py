@@ -17,14 +17,18 @@ def find_modules(m, cond):
     return sum([find_modules(o,cond) for o in m.children()], [])
 
 def is_lin_layer(l):
-    lin_layers = (nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.Linear, nn.ReLU)
+    lin_layers = (nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.Linear)
     return isinstance(l, lin_layers)
 
 def lsuv_module(m, xb):
-    h = Hook(m, append_stat)
+    h = Hook(m, append_mean)
 
-    while mdl(xb) is not None and abs(h.std-1) > 1e-3: m.weight.data /= h.std
-    while mdl(xb) is not None and abs(h.mean)  > 1e-3: m.bias -= h.mean
+    if getattr(m, 'bias', None) is not None:
+        while mdl(xb) is not None and abs(h.mean) > 1e-3:
+            m.bias.data -= h.mean
+
+    while mdl(xb) is not None and abs(h.std-1) > 1e-3:
+        m.weight.data /= h.std
 
     h.remove()
     return h.mean,h.std
