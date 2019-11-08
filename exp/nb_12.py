@@ -96,7 +96,8 @@ def parallel(func, arr, max_workers=4):
     if any([o is not None for o in results]): return results
 
 class TokenizeProcessor(Processor):
-    def __init__(self, lang="en", chunksize=2000, pre_rules=None, post_rules=None, max_workers=4):
+    #def __init__(self, lang="en", chunksize=2000, pre_rules=None, post_rules=None, max_workers=4):
+    def __init__(self, lang="en", chunksize=2000, pre_rules=None, post_rules=None, max_workers=1):
         self.chunksize,self.max_workers = chunksize,max_workers
         self.tokenizer = spacy.blank(lang).tokenizer
         for w in default_spec_tok:
@@ -118,7 +119,7 @@ class TokenizeProcessor(Processor):
         toks = parallel(self.proc_chunk, chunks, max_workers=self.max_workers)
         return sum(toks, [])
 
-    def proc1(self, item): return self.proc_chunk([toks])[0]
+    def proc1(self, item): return self.proc_chunk([item])[0]
 
     def deprocess(self, toks): return [self.deproc1(tok) for tok in toks]
     def deproc1(self, tok):    return " ".join(tok)

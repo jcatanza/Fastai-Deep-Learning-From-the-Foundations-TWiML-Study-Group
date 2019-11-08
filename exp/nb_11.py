@@ -32,12 +32,12 @@ class ResBlock(nn.Module):
     def __init__(self, expansion, ni, nh, stride=1):
         super().__init__()
         nf,ni = nh*expansion,ni*expansion
-        layers  = [conv_layer(ni, nh, 1)]
-        layers += [
-            conv_layer(nh, nf, 3, stride=stride, zero_bn=True, act=False)
-        ] if expansion==1 else [
-            conv_layer(nh, nh, 3, stride=stride),
-            conv_layer(nh, nf, 1, zero_bn=True, act=False)
+        layers  = [conv_layer(ni, nh, 3, stride=stride),
+                   conv_layer(nh, nf, 3, zero_bn=True, act=False)
+        ] if expansion == 1 else [
+                   conv_layer(ni, nh, 1),
+                   conv_layer(nh, nh, 3, stride=stride),
+                   conv_layer(nh, nf, 1, zero_bn=True, act=False)
         ]
         self.convs = nn.Sequential(*layers)
         self.idconv = noop if ni==nf else conv_layer(ni, nf, 1, act=False)
@@ -72,9 +72,9 @@ class XResNet(nn.Sequential):
             *[ResBlock(expansion, ni if i==0 else nf, nf, stride if i==0 else 1)
               for i in range(n_blocks)])
 
-def xresnet18 (**kwargs): return XResNet.create(1, [2, 2, 2, 2], **kwargs)
-def xresnet34 (**kwargs): return XResNet.create(1, [3, 4, 6, 3], **kwargs)
-def xresnet50 (**kwargs): return XResNet.create(4, [3, 4, 6, 3], **kwargs)
+def xresnet18 (**kwargs): return XResNet.create(1, [2, 2,  2, 2], **kwargs)
+def xresnet34 (**kwargs): return XResNet.create(1, [3, 4,  6, 3], **kwargs)
+def xresnet50 (**kwargs): return XResNet.create(4, [3, 4,  6, 3], **kwargs)
 def xresnet101(**kwargs): return XResNet.create(4, [3, 4, 23, 3], **kwargs)
 def xresnet152(**kwargs): return XResNet.create(4, [3, 8, 36, 3], **kwargs)
 
