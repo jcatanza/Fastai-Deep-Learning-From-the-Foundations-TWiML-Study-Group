@@ -69,6 +69,11 @@ class MixUp(Callback):
         # change the loss function's 'reduction' attibute back to 'mean'
         return reduce_loss(loss, getattr(self.old_loss_func, 'reduction', 'mean'))
 
+# Label Smoothing
+#     form a mixture of the case of the training label is absolutely correct,
+#     and the case where the training label so noisy that it is unknown.
+#     in the latter case we assume a uniform prior p(k) = 1/K where k is any class label
+#     and K is the number of classes
 class LabelSmoothingCrossEntropy(nn.Module):
     def __init__(self, ε:float=0.1, reduction='mean'):
         super().__init__()
@@ -79,22 +84,15 @@ class LabelSmoothingCrossEntropy(nn.Module):
         #      output is the activations from the last layer of the model, size is [64, 10]
         #      target is the 'true' labels, size is [64]
 
-        # c is the number of classes for the imagenette data set, which is 10
-        c = output.size()[-1]
+        # number of classes for the imagenette data set, which is 10
+        n_classes = output.size()[-1]
 
         # pytorch's fast and numerically stable computation of log_softmax
         #     Note: -log_preds has size [64,10]
         log_preds = F.log_softmax(output, dim=-1)
 
-        # one-hot encode the target vector
-        mask = torch.nn.functional.one_hot(target.long(), num_classes=c)
-
-        # zero-hot encode the target vector, i.e. a mask of the "incorrect" classes
-        mask = (mask==0).float()
-
-        # sum of the cross-entropy loss over the "incorrect" classes, assuming each is the true class
-        # sum_class_loss = -log_preds.sum(dim=-1) # (original implementation)
-        sum_class_loss = (-log_preds*mask).sum(dim=-1) # corrected
+        # sum of the cross-entropy loss over the classes, assuming each is the true class
+        sum_class_loss = -log_preds.sum(dim=-1)
 
         # mean of sum_class_loss for the batch
         loss = reduce_loss(sum_class_loss, self.reduction)
@@ -102,5 +100,4 @@ class LabelSmoothingCrossEntropy(nn.Module):
         # negative log-likelihood loss, averaged over the batch
         nll = F.nll_loss(log_preds, target, reduction=self.reduction)
 
-        # return lin_comb(loss/c, nll, self.ε) # original implementation
-        return lin_comb(loss/(c-1), nll, self.ε) # corrected implementation
+        return lin_comb(loss/n_classes, nll, self.ε) # original implementation
