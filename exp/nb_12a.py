@@ -155,7 +155,7 @@ class RNNTrainer(Callback):
         if self.α != 0.:  self.run.loss += self.α * self.out[-1].float().pow(2).mean()
         if self.β != 0.:
             h = self.raw_out[-1]
-            if len(h)>1: self.run.loss += self.β * (h[:,1:] - h[:,:-1]).float().pow(2).mean()
+            if h.size(1)>1: self.run.loss += self.β * (h[:,1:] - h[:,:-1]).float().pow(2).mean()
 
     def begin_epoch(self):
         #Shuffle the texts at the beginning of the epoch
